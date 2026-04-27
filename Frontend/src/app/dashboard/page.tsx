@@ -362,7 +362,7 @@ export default function Dashboard() {
     // Build list from start down to 0, excluding start for non-first
     return DECILES.filter(d => {
       if (d > maxEnd) return false;
-      if (!isFirst && d >= row.start_decile) return false;
+      if (!isFirst && d >= row.start_decile!) return false;
       return true;
     });
   };
@@ -508,7 +508,7 @@ export default function Dashboard() {
               </div>
               <div className="cb">
                 <div style={{display:"flex",gap:8,marginBottom:6}}>
-                  <div style={{flex:1}} className="eyebrow" style2={{marginBottom:0}}>Column name</div>
+                  <div style={{flex:1,marginBottom:0}} className="eyebrow">Column name</div>
                   <div style={{width:72,font:"600 9px/1 var(--sans)",textTransform:"uppercase",letterSpacing:".4px",color:"var(--tx3)"}}>Weight</div>
                   <div style={{width:28}}/>
                 </div>
