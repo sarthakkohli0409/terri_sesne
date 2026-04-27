@@ -1,0 +1,32 @@
+services:
+  # -----------------------------------------------------------------------
+  # Backend — FastAPI (Docker)
+  # -----------------------------------------------------------------------
+  - type: web
+    name: terrisense-backend
+    runtime: docker
+    dockerfilePath: ./Backend/Dockerfile
+    dockerContext: ./Backend
+    plan: standard
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 8000
+
+  # -----------------------------------------------------------------------
+  # Frontend — Next.js (Node)
+  # -----------------------------------------------------------------------
+  - type: web
+    name: terrisense-frontend
+    runtime: node
+    rootDir: Frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    plan: free
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: https://YOUR_BACKEND_RENDER_URL
+      - key: NODE_VERSION
+        value: "20"
+      - key: PORT
+        value: 3000
