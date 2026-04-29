@@ -273,7 +273,12 @@ export default function AlignPage() {
     if (isWaiting || !text.trim()) return;
     setIsWaiting(true);
 
+    // Guard: after flow ends, FLOW[currentFlowIdx] is undefined
     const currentFlowStep = FLOW[currentFlowIdx];
+    if (!currentFlowStep) {
+      setIsWaiting(false);
+      return;
+    }
     addUserMessage(text, currentFlowStep.qid);
 
     // ── Template request ──────────────────────────────────────────────────
@@ -558,40 +563,63 @@ Adjust the sliders on the left if needed, then confirm when ready.`,
       return fd;
     };
 
-    try {
-      const [mapRes, xlsRes] = await Promise.allSettled([
-        axios.post(`${API}/optimize_map`, buildFd(), { responseType: "text", timeout: 300000 }),
-        axios.post(`${API}/optimize_excel`, buildFd(), { responseType: "blob", timeout: 300000 }),
-      ]);
+    // Retry helper — Render free tier can fail on cold start with a fake CORS error
+    const fetchWithRetry = async (fn: () => Promise<unknown>, retries = 2, delayMs = 6000): Promise<unknown> => {
+      for (let i = 0; i < retries; i++) {
+        try { return await fn(); }
+        catch (e) {
+          if (i < retries - 1) {
+            addBotMessage("The server is waking up — retrying in a moment...", "Q-FIN");
+            await new Promise(r => setTimeout(r, delayMs));
+          } else throw e;
+        }
+      }
+    };
 
-      if (xlsRes.status === "fulfilled") {
+    try {
+      // Map first — sequential to stay within Render free tier memory
+      let mapHtml: string | null = null;
+      try {
+        const mapRes = await fetchWithRetry(
+          () => axios.post(`${API}/optimize_map`, buildFd(), { responseType: "text", timeout: 300000 })
+        ) as { data: string };
+        mapHtml = mapRes.data;
+        setResult({ mapHtml });
+        setTimeout(() => mapRef.current?.scrollIntoView({ behavior: "smooth" }), 400);
+        addBotMessage("Map generated! The Excel report is now being built...", "Q-FIN");
+      } catch (mapErr) {
+        setGenError("Map generation failed — the server may still be waking up. Try again in 30 seconds.");
+        return;
+      }
+
+      // Excel second — separate request after map completes
+      try {
+        const xlsRes = await fetchWithRetry(
+          () => axios.post(`${API}/optimize_excel`, buildFd(), { responseType: "blob", timeout: 300000 })
+        ) as { data: BlobPart };
         const a = document.createElement("a");
-        a.href = URL.createObjectURL(new Blob([xlsRes.value.data]));
+        a.href = URL.createObjectURL(new Blob([xlsRes.data]));
         a.download = "territory_analysis.xlsx";
         a.click(); a.remove();
+        addBotMessage("Your Excel report has been downloaded.", "Q-FIN");
+      } catch {
+        addBotMessage("Map is ready but Excel download failed — you can retry the Excel from the panel above.", "Q-FIN");
       }
 
-      if (mapRes.status === "fulfilled") {
-        setResult({ mapHtml: mapRes.value.data });
-        setTimeout(() => mapRef.current?.scrollIntoView({ behavior: "smooth" }), 400);
-
-        // AI inference
-        setAiLoading(true);
-        try {
-          const infFd = new FormData();
-          infFd.append("k", String(numClusters));
-          infFd.append("tolerance_pct", String(tolerance));
-          infFd.append("hard_floor", String(hardFloor));
-          infFd.append("min_cap", String(minCap));
-          infFd.append("max_cap", String(maxCap));
-          infFd.append("stats_json", "{}");
-          const infRes = await axios.post(`${API}/ai_inference`, infFd, { timeout: 60000 });
-          if (infRes.data && !infRes.data.error) setAiResult(infRes.data);
-        } catch { /* non-blocking */ }
-        finally { setAiLoading(false); }
-      } else {
-        setGenError("Map generation failed — check backend logs.");
-      }
+      // AI inference — non-blocking, runs after both
+      setAiLoading(true);
+      try {
+        const infFd = new FormData();
+        infFd.append("k", String(numClusters));
+        infFd.append("tolerance_pct", String(tolerance));
+        infFd.append("hard_floor", String(hardFloor));
+        infFd.append("min_cap", String(minCap));
+        infFd.append("max_cap", String(maxCap));
+        infFd.append("stats_json", "{}");
+        const infRes = await axios.post(`${API}/ai_inference`, infFd, { timeout: 60000 });
+        if (infRes.data && !infRes.data.error) setAiResult(infRes.data);
+      } catch { /* non-blocking */ }
+      finally { setAiLoading(false); }
     } catch (err: unknown) {
       setGenError(axios.isAxiosError(err) ? err.message : "Generation failed.");
     } finally { setGenerating(false); }
