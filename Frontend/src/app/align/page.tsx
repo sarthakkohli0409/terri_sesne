@@ -516,14 +516,17 @@ export default function AlignPage() {
       return;
     }
 
-    // Check if user wants to jump back to a specific step
+    // Check if user wants to jump to a specific step (works even after Q-FIN)
     const jumpTo = detectStepIntent(text);
-    if (jumpTo && currentFlowStep) {
+    if (jumpTo) {
       const jumpIdx = FLOW.findIndex(f => f.qid === jumpTo);
-      if (jumpIdx >= 0 && jumpIdx < currentFlowIdx) {
-        addUserMessage(text, currentFlowStep.qid);
+      if (jumpIdx >= 0) {
+        addUserMessage(text, currentFlowStep?.qid || "Q-FIN");
         setCurrentFlowIdx(jumpIdx);
+        setCurrentStep(FLOW[jumpIdx].stepId);
+        setIsWaiting(true);
         await showGroqAndQuestion(FLOW[jumpIdx], jumpIdx);
+        setIsWaiting(false);
         return;
       }
     }
@@ -591,10 +594,10 @@ Keep answers concise — 2-4 sentences max unless a detailed explanation is need
   // ── Detect if user wants to jump to a specific step ──────────────────────
   function detectStepIntent(text: string): string | null {
     const t = text.toLowerCase();
-    if (/segment|decile|call freq|targeting/.test(t)) return "Q-004";
-    if (/metric|weight|column|percentage/.test(t)) return "Q-003";
-    if (/upload|file|data|template|hcp/.test(t)) return "Q-002";
-    if (/territor|sizing|rep|headcount|k value/.test(t)) return "Q-005";
+    if (/segment|decile|call freq|targeting|tier|high|medium|low/.test(t)) return "Q-004";
+    if (/metric|weight|column|percentage|prevalence|rx|forms|reimburse/.test(t)) return "Q-003";
+    if (/upload|file|data|template|hcp|zip|patient/.test(t)) return "Q-002";
+    if (/territor|sizing|rep|headcount|k value|how many|number of/.test(t)) return "Q-005";
     return null;
   }
 
