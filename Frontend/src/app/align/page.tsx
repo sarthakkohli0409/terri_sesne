@@ -428,31 +428,29 @@ export default function AlignPage() {
 
     // ── GATE: Q-004 segments must have at least one valid targeted segment ─
     if (currentFlowStep.qid === "Q-004") {
+      // At least one targeted segment must have deciles set
       const activeSegs = segments.filter(s =>
         s.target === true &&
         s.startDecile !== null &&
-        s.endDecile !== null &&
-        s.callsPerHcp !== "" &&
-        Number(s.callsPerHcp) >= 0
+        s.endDecile !== null
       );
       if (activeSegs.length === 0) {
         addBotMessage(
-          "Before continuing, please configure at least one segment on the left — " +
-          "set the starting decile, ending decile, calls per HCP, and mark it as Target: Yes.",
+          "Please set the decile range for at least one segment on the left before continuing.",
           "Q-004"
         );
         setIsWaiting(false);
         return;
       }
-      // Validate no segment is partially filled
+      // Check targeted segments have decile ranges set
       const partial = segments.filter(s =>
-        s.target === true && (s.startDecile === null || s.endDecile === null || s.callsPerHcp === "")
+        s.target === true && (s.startDecile === null || s.endDecile === null)
       );
       if (partial.length > 0) {
         addBotMessage(
-          "Looks like " + partial.map(s => s.name).join(", ") + " " +
-          (partial.length === 1 ? "is" : "are") + " marked as Target but missing decile range or call frequency. " +
-          "Please complete all fields or set Target to No for those segments.",
+          partial.map(s => s.name).join(", ") + " " +
+          (partial.length === 1 ? "is" : "are") + " marked as Target but missing decile range. " +
+          "Please set the start and end decile for each targeted segment.",
           "Q-004"
         );
         setIsWaiting(false);
