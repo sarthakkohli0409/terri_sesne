@@ -864,6 +864,16 @@ Adjust the sliders on the left if needed, then confirm when ready.`,
         mapHtml = mapRes.data;
         setResult({ mapHtml });
         setTimeout(() => mapRef.current?.scrollIntoView({ behavior: "smooth" }), 400);
+        // Read AI analysis from header — computed server-side with real stats
+        try {
+          const mapResTyped = mapRes as { data: string; headers: Record<string, string> };
+          const aiHeader = mapResTyped.headers?.['x-ai-analysis'];
+          if (aiHeader) {
+            const aiData = JSON.parse(aiHeader);
+            if (aiData?.executive_summary) setAiResult(aiData);
+          }
+        } catch { /* non-blocking */ }
+
         addBotMessage(
           "Map generated! Would you like to download the Excel report as well?",
           "Q-FIN",
@@ -873,21 +883,6 @@ Adjust the sliders on the left if needed, then confirm when ready.`,
         setGenError("Map generation failed — the server may still be waking up. Try again in 30 seconds.");
         return;
       }
-
-      // AI inference — non-blocking, runs after both
-      setAiLoading(true);
-      try {
-        const infFd = new FormData();
-        infFd.append("k", String(numClusters));
-        infFd.append("tolerance_pct", String(tolerance));
-        infFd.append("hard_floor", String(hardFloor));
-        infFd.append("min_cap", String(minCap));
-        infFd.append("max_cap", String(maxCap));
-        infFd.append("stats_json", "{}");
-        const infRes = await axios.post(`${API}/ai_inference`, infFd, { timeout: 60000 });
-        if (infRes.data && !infRes.data.error) setAiResult(infRes.data);
-      } catch { /* non-blocking */ }
-      finally { setAiLoading(false); }
     } catch (err: unknown) {
       setGenError(axios.isAxiosError(err) ? err.message : "Generation failed.");
     } finally { setGenerating(false); }
@@ -1397,8 +1392,8 @@ Adjust the sliders on the left if needed, then confirm when ready.`,
         {(aiLoading || aiResult) && (
           <div style={styles.aiPanel}>
             <div style={styles.aiPanelHead}>
-              <span style={styles.aiPanelTitle}>AI Territory Analysis</span>
-              <span style={styles.aiPanelBadge}>Groq · Llama 3.1</span>
+              <span style={styles.aiPanelTitle}>Territory Intelligence Report</span>
+
             </div>
             <div style={{ padding: 18 }}>
               {aiLoading && !aiResult && (
