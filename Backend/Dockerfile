@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source
 COPY main.py .
-COPY us_zips.csv .
+COPY uszips.csv .
 
 EXPOSE 8000
 
